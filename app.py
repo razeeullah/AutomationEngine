@@ -142,17 +142,24 @@ with tabs[2]:
         video_engine = col_eng.radio("Video Engine", ["Stock (Pexels)", "Generative (Sora)"])
         keywords = col_kw.text_input("Footage Keywords", value="finance, money, stock market")
         
+        if video_engine == "Generative (Sora)":
+            custom_sora_prompt = st.text_area("Custom Sora Prompt", value=st.session_state.get('current_script', "")[:500], help="Optional: Provide a specific prompt for Sora. Defaults to script.")
+        else:
+            custom_sora_prompt = None
+
         if st.button("Generate Final Video"):
             engine_map = {"Stock (Pexels)": "stock", "Generative (Sora)": "sora"}
             with st.spinner(f"Assembling video via {video_engine}..."):
                 try:
                     video_path = f"outputs/videos/{st.session_state['current_topic'].replace(' ', '_')[:20]}.mp4"
                     kw_list = [k.strip() for k in keywords.split(",")]
+                    # Use custom prompt if provided, else fallback to script
+                    final_prompt = custom_sora_prompt if custom_sora_prompt else st.session_state.get('current_script', "")
                     create_video(
                         st.session_state['current_audio'], 
                         video_path, 
                         keywords=kw_list, 
-                        script_text=st.session_state['current_script'],
+                        script_text=final_prompt,
                         source=engine_map[video_engine],
                         sora_api_key=sora_key
                     )
