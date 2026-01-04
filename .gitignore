@@ -1,0 +1,25 @@
+# Environment variables
+.env
+.env.local
+
+# Python dependencies
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# YouTube API / Google Secrets
+client_secrets.json
+client_secret_*.json
+
+# Outputs
+outputs/audio/
+outputs/videos/
+outputs/thumbnails/
+outputs/queue.json
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
