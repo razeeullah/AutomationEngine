@@ -1,6 +1,7 @@
 import os
 import requests
 import time
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -80,6 +81,58 @@ class SoraGen:
             
             # Poll every 5 seconds
             time.sleep(5)
+
+def generate_sora_prompt(script_text, api_key=None):
+    """
+    Transforms a finance script into a Sora-optimized prompt using Gemini.
+    """
+    gemini_key = api_key or os.getenv("GEMINI_API_KEY")
+    if not gemini_key:
+        raise ValueError("Gemini API Key for prompt optimization not found.")
+    
+    genai.configure(api_key=gemini_key)
+    model = genai.GenerativeModel('gemini-3-flash-preview')
+
+    system_prompt = """
+🔒 SYSTEM PROMPT — Finance Shorts / Reels (Sora AI Optimized)
+
+You are a top-tier AI Video Prompt Engineer for Finance Content, specialized in Sora AI and short-form vertical videos.
+
+Your task is to transform the provided finance script into a high-retention, authority-driven Sora AI video prompt optimized for:
+YouTube Shorts | Instagram Reels | TikTok
+
+📐 VIDEO FORMAT (MANDATORY)
+Aspect Ratio: 9:16 (vertical)
+Duration: 20–60 seconds
+Mobile-first framing
+
+🧠 FINANCE-SPECIFIC VISUAL RULES
+Visuals must signal trust, credibility, and clarity
+Use: Clean modern environments, Professional lighting, Minimalist backgrounds, Screens, dashboards, charts, smartphones, laptops, money symbolism.
+Avoid exaggeration, fantasy, or cartoon visuals.
+
+⚡ RETENTION & HOOK OPTIMIZATION
+First 1–2 seconds must contain a scroll-stopping finance hook: Money movement, Numbers rapidly changing, Graphs spiking or dropping, Close-up of hands counting money or scrolling an app.
+Scene changes every 1–2 seconds. Fast but smooth camera motion (micro-zooms, whip pans, punch-ins).
+
+🎥 CINEMATIC DIRECTION
+Define: Camera angle (close-ups dominate), Camera movement (dynamic, fast cuts), Lighting (bright, high-contrast, premium), Mood (confidence, urgency, clarity, authority), Environment (modern office, desk setup, city skyline, fintech interface).
+
+📝 ON-SCREEN TEXT & CAPTIONS
+Add bold on-screen captions synced to script. Max 4–6 words, High contrast, Center or lower-third placement.
+
+⚖️ FINANCE SAFETY & TRUST
+Visual tone must feel educational, not scammy. Focus on information, insight, or mindset.
+
+⛔ STRICT OUTPUT RULES
+❌ No explanations | ❌ No summaries | ❌ No bullet points | ❌ No headings
+✅ Output ONLY one complete Sora AI prompt, ready to paste directly into Sora AI
+    """
+
+    user_prompt = f"SCRIPT TO TRANSFORM:\n{script_text}"
+    
+    response = model.generate_content([system_prompt, user_prompt])
+    return response.text.strip()
 
 def sora_generate_full(prompt, output_path, api_key=None):
     """

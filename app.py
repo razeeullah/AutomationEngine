@@ -8,6 +8,7 @@ from src.video_gen import create_video
 from src.thumbnail_gen import generate_thumbnail
 from src.uploader import get_authenticated_service, upload_video
 from src.scheduler import add_to_queue, get_queue, process_queue, QUEUE_FILE
+from src.sora_gen import generate_sora_prompt
 from datetime import datetime, timedelta
 
 load_dotenv()
@@ -143,7 +144,17 @@ with tabs[2]:
         keywords = col_kw.text_input("Footage Keywords", value="finance, money, stock market")
         
         if video_engine == "Generative (Sora)":
-            custom_sora_prompt = st.text_area("Custom Sora Prompt", value=st.session_state.get('current_script', "")[:500], help="Optional: Provide a specific prompt for Sora. Defaults to script.")
+            custom_sora_prompt = st.text_area("Custom Sora Prompt", 
+                                            value=st.session_state.get('sora_prompt_optimized', st.session_state.get('current_script', "")[:500]), 
+                                            help="Optional: Provide a specific prompt for Sora. Defaults to script.")
+            if st.button("✨ AI Optimize Prompt for Sora"):
+                with st.spinner("Transforming script into Sora-optimized prompt..."):
+                    try:
+                        optimized = generate_sora_prompt(st.session_state.get('current_script', ""), api_key=gemini_key)
+                        st.session_state['sora_prompt_optimized'] = optimized
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Optimization failed: {e}")
         else:
             custom_sora_prompt = None
 
