@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import uuid
 from datetime import datetime
 from src.uploader import get_authenticated_service, upload_video
 
@@ -28,13 +29,38 @@ def add_to_queue(video_path, title, description, schedule_time):
     
     queue = get_queue()
     queue.append({
+        "id": str(uuid.uuid4()),
         "video_path": video_path,
         "title": title,
         "description": description,
         "schedule_time": schedule_time,
-        "status": "queued"
+        "status": "queued",
+        "created_at": datetime.now().isoformat()
     })
     save_queue(queue)
+
+def update_queue_item(item_id, updates):
+    """
+    Updates a queue item by its ID.
+    """
+    queue = get_queue()
+    for item in queue:
+        if item["id"] == item_id:
+            item.update(updates)
+            save_queue(queue)
+            return True
+    return False
+
+def delete_from_queue(item_id):
+    """
+    Deletes an item from the queue by ID.
+    """
+    queue = get_queue()
+    new_queue = [item for item in queue if item["id"] != item_id]
+    if len(new_queue) < len(queue):
+        save_queue(new_queue)
+        return True
+    return False
 
 def process_queue():
     """
@@ -53,10 +79,12 @@ def process_queue():
                     youtube = get_authenticated_service()
                     upload_video(youtube, item["video_path"], item["title"], item["description"])
                     item["status"] = "uploaded"
+                    item["uploaded_at"] = datetime.now().isoformat()
                     updated = True
                 except Exception as e:
                     print(f"Error uploading {item['title']}: {e}")
-                    item["status"] = f"failed: {str(e)}"
+                    item["status"] = "failed"
+                    item["error"] = str(e)
                     updated = True
     
     if updated:

@@ -34,8 +34,9 @@ def save_key_to_env(key_name, key_value):
 
 st.set_page_config(page_title="Faceless Finance Automation", layout="wide")
 
-st.title("💰 Faceless Finance Channel Automation")
-st.markdown("Automate your content creation pipeline from topics to YouTube uploads.")
+st.title("💰 AutomationEngine")
+st.markdown("### The Ultimate Faceless Finance Channel Automation")
+st.info("Automate your content creation pipeline from topics to YouTube uploads.")
 
 with st.sidebar:
     st.header("Settings")
@@ -141,7 +142,7 @@ with tabs[2]:
                 try:
                     video_path = f"outputs/videos/{st.session_state['current_topic'].replace(' ', '_')[:20]}.mp4"
                     kw_list = [k.strip() for k in keywords.split(",")]
-                    create_video(st.session_state['current_audio'], video_path, keywords=kw_list)
+                    create_video(st.session_state['current_audio'], video_path, keywords=kw_list, script_text=st.session_state['current_script'])
                     st.session_state['current_video'] = video_path
                     st.success(f"Video created: {video_path}")
                     st.video(video_path)
@@ -216,26 +217,48 @@ with tabs[4]:
             st.info("Generate a video in the 'Video Gen' tab first.")
 
     with col2:
-        st.subheader("Current Queue")
+        st.subheader("Manage Queue")
+        q_status = st.selectbox("Filter by Status", ["All", "queued", "uploaded", "failed"], index=0)
+        
         if st.button("🔄 Refresh & Process Queue"):
             process_queue()
             st.rerun()
             
         queue = get_queue()
+        if q_status != "All":
+            queue = [item for item in queue if item["status"] == q_status]
+            
         if not queue:
-            st.info("No videos in queue.")
+            st.info(f"No videos with status '{q_status}' in queue.")
         else:
-            for i, item in enumerate(queue):
+            from src.scheduler import delete_from_queue, update_queue_item
+            for item in queue:
                 with st.expander(f"{item['status'].upper()}: {item['title']} - {item['schedule_time']}"):
-                    st.write(f"Path: {item['video_path']}")
-                    st.write(f"Description: {item['description']}")
-                    if item['status'] == 'queued':
-                        if st.button(f"Cancel {i}", key=f"cancel_{i}"):
-                            queue.pop(i)
-                            with open(QUEUE_FILE, "w") as f:
-                                import json
-                                json.dump(queue, f, indent=4)
-                            st.rerun()
+                    # Editing fields
+                    new_title = st.text_input("Title", value=item['title'], key=f"edit_t_{item['id']}")
+                    new_desc = st.text_area("Description", value=item['description'], key=f"edit_d_{item['id']}")
+                    
+                    # Schedule editing
+                    curr_dt = datetime.fromisoformat(item['schedule_time'])
+                    col_d, col_t = st.columns(2)
+                    new_d = col_d.date_input("Date", value=curr_dt.date(), key=f"edit_date_{item['id']}")
+                    new_t = col_t.time_input("Time", value=curr_dt.time(), key=f"edit_time_{item['id']}")
+                    new_dt_full = datetime.combine(new_d, new_t)
+                    
+                    c1, c2 = st.columns(2)
+                    if c1.button("💾 Save Changes", key=f"save_{item['id']}"):
+                        update_queue_item(item['id'], {
+                            "title": new_title,
+                            "description": new_desc,
+                            "schedule_time": new_dt_full.isoformat()
+                        })
+                        st.success("Changes saved!")
+                        st.rerun()
+                        
+                    if c2.button("🗑️ Delete", key=f"del_{item['id']}"):
+                        delete_from_queue(item['id'])
+                        st.warning("Deleted from queue.")
+                        st.rerun()
 
 with tabs[5]:
     st.header("6. Channel Analytics")

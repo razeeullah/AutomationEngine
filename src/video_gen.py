@@ -1,6 +1,6 @@
 import os
 import requests
-from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips
+from moviepy import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -36,9 +36,9 @@ def download_file(url, output_path):
         return output_path
     return None
 
-def create_video(audio_path, video_save_path, keywords=None):
+def create_video(audio_path, video_save_path, keywords=None, script_text=None):
     """
-    Combines audio with stock footage to create a final video.
+    Combines audio with stock footage and adds subtitles to create a final video.
     """
     audio = AudioFileClip(audio_path)
     duration = audio.duration
@@ -85,18 +85,46 @@ def create_video(audio_path, video_save_path, keywords=None):
             break
 
     if not clips:
-        raise Exception("Could not find any stock footage.")
+        # Fallback to a solid color if no footage found
+        from moviepy import ColorClip
+        clips = [ColorClip(size=(1920, 1080), color=(0,0,0), duration=duration)]
     
     # Concatenate all clips
-    final_clip = concatenate_videoclips(clips, method="compose")
+    video_base = concatenate_videoclips(clips, method="compose")
     
     # If still shorter than audio (rare), loop the whole thing
-    if final_clip.duration < duration:
-        final_clip = final_clip.loop(duration=duration)
+    if video_base.duration < duration:
+        video_base = video_base.loop(duration=duration)
     else:
-        final_clip = final_clip.subclip(0, duration)
+        video_base = video_base.subclip(0, duration)
     
-    final_video = final_clip.set_audio(audio)
+    # Add Subtitles if script_text is provided
+    final_clips = [video_base]
+    if script_text:
+        # Simple subtitle logic: split by sentences and distribute over duration
+        import re
+        sentences = re.split(r'(?<=[.!?]) +', script_text.strip())
+        sentences = [s for s in sentences if s.strip()]
+        
+        if sentences:
+            time_per_sentence = duration / len(sentences)
+            for i, sentence in enumerate(sentences):
+                # Clean sentence for display
+                txt = sentence.strip()
+                if len(txt) > 60: txt = txt[:57] + "..." # Truncate long sentences
+                
+                try:
+                    subtitle = (TextClip(text=txt, font_size=50, color='white', font='Arial', 
+                                         stroke_color='black', stroke_width=2, 
+                                         method='caption', size=(video_base.w * 0.8, None))
+                                .with_start(i * time_per_sentence)
+                                .with_duration(time_per_sentence)
+                                .with_position(('center', video_base.h * 0.8)))
+                    final_clips.append(subtitle)
+                except Exception as e:
+                    print(f"Warning: Could not create subtitle clip: {e}")
+
+    final_video = CompositeVideoClip(final_clips).set_audio(audio)
     
     # Write output
     final_video.write_videofile(video_save_path, fps=24, codec="libx264", audio_codec="aac")
