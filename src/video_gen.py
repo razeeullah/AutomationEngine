@@ -2,6 +2,7 @@ import os
 import requests
 from moviepy import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips
 from dotenv import load_dotenv
+from src.sora_gen import sora_generate_full
 
 load_dotenv()
 
@@ -36,53 +37,57 @@ def download_file(url, output_path):
         return output_path
     return None
 
-def create_video(audio_path, video_save_path, keywords=None, script_text=None):
+def create_video(audio_path, video_save_path, keywords=None, script_text=None, source="stock", sora_api_key=None):
     """
-    Combines audio with stock footage and adds subtitles to create a final video.
+    Combines audio with video footage (Stock or Sora AI) and adds subtitles.
     """
     audio = AudioFileClip(audio_path)
     duration = audio.duration
     
-    # Use a set of keywords or repeat the primary one
-    search_queries = keywords if keywords else ["finance", "money", "growth", "savings"]
-    
     clips = []
-    current_duration = 0
     
-    # We want to fill the duration with multiple clips of ~5-10 seconds each
-    q_idx = 0
-    while current_duration < duration:
-        query = search_queries[q_idx % len(search_queries)]
-        video_url = fetch_stock_video(query)
-        
-        if not video_url:
-            # Fallback to general finance if specific keyword fails
-            video_url = fetch_stock_video("finance")
-            
-        if not video_url:
-            break
-            
-        temp_stock = f"outputs/videos/temp_stock_{len(clips)}.mp4"
-        download_file(video_url, temp_stock)
-        
-        clip = VideoFileClip(temp_stock)
-        
-        # Determine how much of this clip to use
-        remaining = duration - current_duration
-        use_duration = min(clip.duration, 10, remaining) # Max 10s per clip for variety
-        
-        if use_duration < remaining and use_duration < 3:
-            # If clip is too short, loop it slightly or just take it all
-            use_duration = min(clip.duration, remaining)
+    if source == "sora":
+        # Generative Video path
+        try:
+            temp_sora = "outputs/videos/temp_sora.mp4"
+            # Use the script or keywords to prompt Sora
+            sora_prompt = script_text[:500] if script_text else " ".join(keywords)
+            sora_generate_full(sora_prompt, temp_sora, api_key=sora_api_key)
+            clips = [VideoFileClip(temp_sora).resize(height=1080)]
+        except Exception as e:
+            print(f"Sora generation failed: {e}. Falling back to stock footage.")
+            source = "stock"
 
-        clip = clip.subclip(0, use_duration).resize(height=1080) # Resize to standard height
-        clips.append(clip)
-        current_duration += use_duration
-        q_idx += 1
+    if source == "stock":
+        # Stock Footage path (Pexels)
+        search_queries = keywords if keywords else ["finance", "money", "growth", "savings"]
+        current_duration = 0
+        q_idx = 0
         
-        # Optimization: limit number of clips to avoid massive memory usage
-        if len(clips) > 20:
-            break
+        while current_duration < duration:
+            query = search_queries[q_idx % len(search_queries)]
+            video_url = fetch_stock_video(query)
+            
+            if not video_url:
+                video_url = fetch_stock_video("finance")
+            
+            if not video_url: break
+                
+            temp_stock = f"outputs/videos/temp_stock_{len(clips)}.mp4"
+            download_file(video_url, temp_stock)
+            
+            clip = VideoFileClip(temp_stock)
+            remaining = duration - current_duration
+            use_duration = min(clip.duration, 10, remaining)
+            
+            if use_duration < remaining and use_duration < 3:
+                use_duration = min(clip.duration, remaining)
+
+            clip = clip.subclip(0, use_duration).resize(height=1080)
+            clips.append(clip)
+            current_duration += use_duration
+            q_idx += 1
+            if len(clips) > 20: break
 
     if not clips:
         # Fallback to a solid color if no footage found

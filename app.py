@@ -42,10 +42,12 @@ with st.sidebar:
     st.header("Settings")
     gemini_key = st.text_input("Gemini API Key", value=os.getenv("GEMINI_API_KEY", ""), type="password")
     eleven_key = st.text_input("ElevenLabs API Key", value=os.getenv("ELEVENLABS_API_KEY", ""), type="password")
+    sora_key = st.text_input("Sora API Key", value=os.getenv("SORA_API_KEY", ""), type="password")
     
     if st.button("Save API Keys"):
         save_key_to_env("GEMINI_API_KEY", gemini_key)
         save_key_to_env("ELEVENLABS_API_KEY", eleven_key)
+        save_key_to_env("SORA_API_KEY", sora_key)
         st.success("Keys saved to .env and updated for this session!")
 
 st.markdown("""
@@ -135,14 +137,25 @@ with tabs[2]:
     st.header("3. Video Assembly")
     if 'current_audio' in st.session_state:
         st.write(f"Create video for: **{st.session_state['current_topic']}**")
-        keywords = st.text_input("Footage Keywords (comma separated)", value="finance, money, stock market")
+        
+        col_eng, col_kw = st.columns([1, 2])
+        video_engine = col_eng.radio("Video Engine", ["Stock (Pexels)", "Generative (Sora)"])
+        keywords = col_kw.text_input("Footage Keywords", value="finance, money, stock market")
         
         if st.button("Generate Final Video"):
-            with st.spinner("Fetching footage and assembling video (this may take a minute)..."):
+            engine_map = {"Stock (Pexels)": "stock", "Generative (Sora)": "sora"}
+            with st.spinner(f"Assembling video via {video_engine}..."):
                 try:
                     video_path = f"outputs/videos/{st.session_state['current_topic'].replace(' ', '_')[:20]}.mp4"
                     kw_list = [k.strip() for k in keywords.split(",")]
-                    create_video(st.session_state['current_audio'], video_path, keywords=kw_list, script_text=st.session_state['current_script'])
+                    create_video(
+                        st.session_state['current_audio'], 
+                        video_path, 
+                        keywords=kw_list, 
+                        script_text=st.session_state['current_script'],
+                        source=engine_map[video_engine],
+                        sora_api_key=sora_key
+                    )
                     st.session_state['current_video'] = video_path
                     st.success(f"Video created: {video_path}")
                     st.video(video_path)

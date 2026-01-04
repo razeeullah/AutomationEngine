@@ -61,4 +61,4 @@ Follow the pipeline:
 The `.gitignore` is pre-configured to exclude your API keys, OAuth secrets, and generated media files by default. Never share your `.env` or `client_secrets.json` files.
 
 ---
-Built with ❤️ by AI for creators.
+Built with ❤️ by Razeeullah.
